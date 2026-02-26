@@ -11,8 +11,8 @@ A Progressive Web App (PWA) for recording and tracking tree growth data, GPS coo
 - **Interactive Map** — Leaflet-based map showing tree locations by plot.
 - **Statistics & Charts** — Recharts dashboards summarising growth trends, species distribution, and plot status.
 - **History View** — Browse and filter past survey records.
-- **Plot Information** — Per-plot overview including images uploaded to Cloudinary.
-- **User Authentication** — Register/login backed by Google Apps Script; per-user profile.
+- **Plot Information** — Per-plot overview including images stored in Supabase Storage.
+- **User Authentication** — Register/login backed by Supabase Auth; per-user profile.
 - **Offline / PWA Support** — Service worker caches the app shell; submissions made offline are queued in `localStorage` and replayed automatically when connectivity returns.
 - **Thai language UI** — All labels and messages are in Thai (Sarabun font).
 
@@ -27,8 +27,8 @@ A Progressive Web App (PWA) for recording and tracking tree growth data, GPS coo
 | Maps | Leaflet + react-leaflet |
 | Charts | Recharts |
 | Icons | lucide-react |
-| Backend / DB | Google Apps Script + Google Sheets |
-| Image storage | Cloudinary |
+| Backend / DB | Supabase (PostgreSQL) |
+| Image storage | Supabase Storage |
 | Dev server | Express (Node.js) |
 | PWA | Web App Manifest + Service Worker |
 
@@ -62,15 +62,17 @@ The app is served at `http://localhost:3000` by default.
 
 | Variable | Description |
 |----------|-------------|
-| `VITE_APPS_SCRIPT_URL` | Deployed Google Apps Script web-app URL (data & auth backend) |
+| `VITE_SUPABASE_URL` | Supabase project URL (from Settings → API) |
+| `VITE_SUPABASE_ANON_KEY` | Supabase anon/public key (from Settings → API) |
 
-For local development, add the variable to a `.env` file in the project root:
+For local development, add the variables to a `.env` file in the project root:
 
 ```
-VITE_APPS_SCRIPT_URL=https://script.google.com/macros/s/<YOUR_DEPLOYMENT_ID>/exec
+VITE_SUPABASE_URL=https://your-project-id.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
 ```
 
-For GitHub Actions / GitHub Pages, add it as a **repository variable** (not a secret) — see [`docs/VITE_APPS_SCRIPT_URL_setup.md`](docs/VITE_APPS_SCRIPT_URL_setup.md) for step-by-step instructions.
+For GitHub Actions / GitHub Pages, add them as **repository variables** (not secrets) — see [`docs/supabase_env_setup.md`](docs/supabase_env_setup.md) for step-by-step instructions.
 
 ---
 
@@ -79,7 +81,7 @@ For GitHub Actions / GitHub Pages, add it as a **repository variable** (not a se
 The app registers a service worker (`public/sw.js`) that:
 
 1. **Pre-caches** the app shell on first install so the UI loads without a network connection.
-2. Serves same-origin assets from the cache first; all external requests (Apps Script, Cloudinary, CDN) are passed through unchanged.
+2. Serves same-origin assets from the cache first; all external requests (Supabase, CDN) are passed through unchanged.
 
 When a field worker submits data while offline, the payload is saved to an `localStorage` queue (`utils/offlineQueue.ts`). A yellow banner and sync badge appear in the header. When connectivity is restored, tapping **Sync** drains the queue in order and refreshes the data.
 
@@ -111,10 +113,10 @@ A second workflow (`.github/workflows/pages.yml`) builds the app and deploys it 
 Once the workflow runs successfully, the site is available at:
 
 ```
-https://channieraven.github.io/maechaem_DB_app-V1/
+https://channieraven.github.io/maechaem-DB-v2.0.0/
 ```
 
-> **Note:** If you fork or rename this repository, replace `channieraven` and `maechaem_DB_app-V1` with your GitHub username and repository name respectively.
+> **Note:** If you fork or rename this repository, replace `channieraven` and `maechaem-DB-v2.0.0` with your GitHub username and repository name respectively.
 
 You can open this URL on your phone or any device — no computer required.
 
@@ -128,5 +130,3 @@ You can open this URL on your phone or any device — no computer required.
 ### Required GitHub repository settings
 
 In your repository go to **Settings → Pages** and set **Source** to **"GitHub Actions"** — this is required for the deploy workflow to work.
-
-trigger deploy 2
