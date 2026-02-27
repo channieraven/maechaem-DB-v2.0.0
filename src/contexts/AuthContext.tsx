@@ -232,9 +232,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!normalizedEmail) {
       return { success: false, message: 'กรุณากรอกอีเมลก่อนขอ Magic Link' };
     }
+    // Prefer an explicitly configured site URL so that magic-link emails point
+    // to the correct host even when the code runs behind localhost during
+    // development. Falls back to the current window origin at runtime.
+    const siteUrl = import.meta.env.VITE_SITE_URL as string | undefined;
+    const siteOrigin = (typeof siteUrl === 'string' && siteUrl)
+      ? siteUrl.replace(/\/$/, '')
+      : window.location.origin;
     const baseUrl = import.meta.env.BASE_URL || '/';
     const normalizedBaseUrl = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
-    const redirectTo = new URL('login', new URL(normalizedBaseUrl, window.location.origin)).toString();
+    const redirectTo = new URL('login', new URL(normalizedBaseUrl, siteOrigin)).toString();
     const { error } = await supabase.auth.signInWithOtp({
       email: normalizedEmail,
       options: { emailRedirectTo: redirectTo },
