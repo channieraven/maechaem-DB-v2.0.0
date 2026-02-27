@@ -11,8 +11,8 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 const supabase = createClient<Database>(
-  supabaseUrl ?? 'https://placeholder.supabase.co',
-  supabaseAnonKey ?? 'placeholder',
+  supabaseUrl || 'https://placeholder.supabase.co',
+  supabaseAnonKey || 'placeholder',
   {
     auth: {
       persistSession: true,
