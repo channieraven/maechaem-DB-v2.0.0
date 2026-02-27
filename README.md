@@ -150,3 +150,6 @@ Deep-links (e.g. `/maechaem-DB-v2.0.0/plots/P01`) are handled by a `public/404.h
 ### Required GitHub repository settings
 
 In your repository go to **Settings → Pages** and set **Source** to **"GitHub Actions"** — this is required for the deploy workflow to work.
+
+
+trigger deploy
