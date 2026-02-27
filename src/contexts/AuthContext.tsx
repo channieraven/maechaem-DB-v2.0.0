@@ -14,6 +14,8 @@ interface AuthState {
   role: UserRole | null;
   canWrite: boolean;    // staff | researcher | admin
   isAdmin: boolean;
+  initError: string | null;
+  initTimedOut: boolean;
 }
 
 interface AuthContextType extends AuthState {
@@ -22,6 +24,7 @@ interface AuthContextType extends AuthState {
   logout: () => Promise<void>;
   updateProfile: (data: Partial<Pick<Profile, 'fullname' | 'position' | 'organization'>>) => Promise<void>;
   refreshProfile: () => Promise<void>;
+  retryInit: () => void;
 }
 
 interface RegisterData {
@@ -37,6 +40,19 @@ interface RegisterData {
 const WRITE_ROLES: UserRole[] = ['staff', 'researcher', 'admin'];
 const MSG_SUPABASE_NOT_CONFIGURED = 'ระบบยังไม่ได้ตั้งค่าการเชื่อมต่อฐานข้อมูล กรุณาติดต่อผู้ดูแลระบบ';
 const MSG_DB_SCHEMA_ERROR = 'ฐานข้อมูลยังไม่พร้อมใช้งาน กรุณาติดต่อผู้ดูแลระบบเพื่อตั้งค่า schema ของฐานข้อมูล';
+const INIT_TIMEOUT_MS = 10_000;
+const MSG_INIT_TIMEOUT = 'การเชื่อมต่อใช้เวลานานเกินไป กรุณาลองใหม่อีกครั้ง';
+const MSG_INIT_ERROR = 'เกิดข้อผิดพลาดในการเชื่อมต่อ กรุณาลองใหม่อีกครั้ง';
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('TIMEOUT')), ms);
+    promise.then(
+      (val) => { clearTimeout(timer); resolve(val); },
+      (err) => { clearTimeout(timer); reject(err); },
+    );
+  });
+}
 
 /** Map raw Supabase error messages to user-friendly Thai messages. */
 function mapAuthError(message: string): string {
@@ -60,6 +76,8 @@ function buildState(user: User | null, profile: Profile | null, session: Session
     role,
     canWrite: role !== null && WRITE_ROLES.includes(role),
     isAdmin: role === 'admin',
+    initError: null,
+    initTimedOut: false,
   };
 }
 
@@ -77,12 +95,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     role: null,
     canWrite: false,
     isAdmin: false,
+    initError: null,
+    initTimedOut: false,
   });
 
-  // Set to true while login() is actively fetching the profile so that the
-  // concurrent onAuthStateChange SIGNED_IN event does not trigger a redundant
-  // second fetchProfile call.
+  // Guards to prevent redundant concurrent fetchProfile calls.
   const isLoginFetchingRef = useRef(false);
+  const isInitFetchingRef = useRef(false);
+
+  // Retry trigger — incrementing re-runs the init useEffect.
+  const [retryCounter, setRetryCounter] = useState(0);
+
+  const retryInit = () => {
+    setState((s) => ({
+      ...s,
+      isLoading: true,
+      initError: null,
+      initTimedOut: false,
+    }));
+    setRetryCounter((c) => c + 1);
+  };
 
   // Fetch the profiles row for a given user id
   const fetchProfile = async (userId: string): Promise<Profile | null> => {
@@ -103,28 +135,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let mounted = true;
 
     const init = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!mounted) return;
+      isInitFetchingRef.current = true;
+      try {
+        const { data: { session } } = await withTimeout(
+          supabase.auth.getSession(),
+          INIT_TIMEOUT_MS,
+        );
+        if (!mounted) return;
 
-      if (session?.user) {
-        const profile = await fetchProfile(session.user.id);
-        if (mounted) setState(buildState(session.user, profile, session));
-      } else {
-        setState((s) => ({ ...s, isLoading: false }));
+        if (session?.user) {
+          const profile = await withTimeout(
+            fetchProfile(session.user.id),
+            INIT_TIMEOUT_MS,
+          );
+          if (mounted) setState(buildState(session.user, profile, session));
+        } else {
+          if (mounted) setState((s) => ({ ...s, isLoading: false }));
+        }
+      } catch (err) {
+        if (!mounted) return;
+        const isTimeout = err instanceof Error && err.message === 'TIMEOUT';
+        setState((s) => ({
+          ...s,
+          isLoading: false,
+          initError: isTimeout ? MSG_INIT_TIMEOUT : MSG_INIT_ERROR,
+          initTimedOut: isTimeout,
+        }));
+      } finally {
+        isInitFetchingRef.current = false;
       }
     };
 
     init();
 
-    // Listen for auth changes
+    // Listen for auth changes (login, logout, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
         if (!mounted) return;
         if (session?.user) {
-          // login() sets isLoginFetchingRef before signInWithPassword resolves,
-          // so when the SIGNED_IN event fires here concurrently we can skip the
-          // redundant fetch — login() will set state itself before returning.
-          if (isLoginFetchingRef.current) return;
+          // Skip if init() or login() is actively fetching the profile.
+          if (isInitFetchingRef.current || isLoginFetchingRef.current) return;
           const profile = await fetchProfile(session.user.id);
           if (mounted) setState(buildState(session.user, profile, session));
         } else {
@@ -137,7 +187,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       mounted = false;
       subscription.unsubscribe();
     };
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [retryCounter]);
 
   const login = async (email: string, password: string) => {
     if (!isSupabaseConfigured) {
@@ -250,7 +301,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ ...state, login, register, logout, updateProfile, refreshProfile }}>
+    <AuthContext.Provider value={{ ...state, login, register, logout, updateProfile, refreshProfile, retryInit }}>
       {children}
     </AuthContext.Provider>
   );
