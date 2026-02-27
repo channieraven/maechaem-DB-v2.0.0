@@ -149,26 +149,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: false, message: MSG_SUPABASE_NOT_CONFIGURED };
     }
     setState((s) => ({ ...s, isLoading: true }));
+
+    // Determine whether this is the very first account in the system.
+    const { count, error: countError } = await supabase
+      .from('profiles')
+      .select('*', { count: 'exact', head: true });
+    if (countError) {
+      console.error('register: profile count error:', countError.message);
+    }
+    const isFirstUser = !countError && count === 0;
+
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error || !data.user) {
       setState((s) => ({ ...s, isLoading: false }));
       return { success: false, message: error?.message || 'ลงทะเบียนไม่สำเร็จ' };
     }
-    // Upsert profile row (trigger should create it, but we fill extra fields)
+    // Upsert profile row (trigger should create it, but we fill extra fields).
+    // The first registered account is automatically granted the admin role.
     const { error: profileError } = await supabase.from('profiles').upsert({
       id: data.user.id,
       email,
       fullname,
       position: position ?? null,
       organization: organization ?? null,
-      role: 'pending' as UserRole,
-      approved: false,
+      role: (isFirstUser ? 'admin' : 'pending') as UserRole,
+      approved: isFirstUser,
     });
     if (profileError) {
       console.error('register: profile upsert error:', profileError.message);
     }
     setState((s) => ({ ...s, isLoading: false }));
-    return { success: true, message: 'ลงทะเบียนสำเร็จ — รอการอนุมัติจากผู้ดูแลระบบ' };
+    return {
+      success: true,
+      message: isFirstUser
+        ? 'ลงทะเบียนสำเร็จ — บัญชีนี้ได้รับสิทธิ์ผู้ดูแลระบบโดยอัตโนมัติ'
+        : 'ลงทะเบียนสำเร็จ — รอการอนุมัติจากผู้ดูแลระบบ',
+    };
   };
 
   const logout = async () => {
