@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import supabase from '../lib/supabase';
-import type { Plot } from '../lib/database.types';
+import type { Database, Plot } from '../lib/database.types';
+
+type PlotSummaryRow = Database['public']['Functions']['get_plot_summaries']['Returns'][number];
 
 interface PlotSummary extends Plot {
   tree_count: number;
@@ -20,7 +22,36 @@ export function usePlots() {
       setIsLoading(true);
       setError(null);
 
-      // Fetch base plots
+      // ── Fast path: server-side aggregation via RPC ──────────────────────────
+      // get_plot_summaries() uses a LATERAL JOIN to compute tree_count,
+      // alive_count and latest_survey_date in a single SQL query.
+      // Falls back to client-side aggregation when the function is not yet
+      // available (PGRST202 = function not found — migration not applied).
+      const { data: rpcData, error: rpcError } = await supabase.rpc('get_plot_summaries');
+
+      if (!mounted) return;
+
+      if (!rpcError) {
+        setPlots(
+          (rpcData ?? []).map((row: PlotSummaryRow) => ({
+            ...row,
+            tree_count: Number(row.tree_count ?? 0),
+            alive_count: Number(row.alive_count ?? 0),
+            latest_survey_date: row.latest_survey_date ?? null,
+          }))
+        );
+        setIsLoading(false);
+        return;
+      }
+
+      // Only fall back for "function not found"; surface other errors.
+      if (rpcError.code !== 'PGRST202') {
+        setError(rpcError.message);
+        setIsLoading(false);
+        return;
+      }
+
+      // ── Fallback: client-side aggregation (pre-migration) ──────────────────
       const { data: plotData, error: plotError } = await supabase
         .from('plots')
         .select('*')

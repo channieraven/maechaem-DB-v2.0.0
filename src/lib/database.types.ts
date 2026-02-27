@@ -182,6 +182,10 @@ export type Database = {
         Args: { p_plot_id: string };
         Returns: (Tree & { lat: number; lng: number })[];
       };
+      get_plot_summaries: {
+        Args: Record<never, never>;
+        Returns: (Plot & { tree_count: number; alive_count: number; latest_survey_date: string | null })[];
+      };
     };
     Enums: {
       plant_category: PlantCategory;
