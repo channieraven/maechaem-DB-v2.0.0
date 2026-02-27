@@ -17,7 +17,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   allowedRoles,
   requireApproved = true,
 }) => {
-  const { user, profile, isLoading, initError, initTimedOut, retryInit } = useAuth();
+  const { user, profile, isLoading, isApproved, initError, initTimedOut, retryInit } = useAuth();
   const location = useLocation();
   const [isSlow, setIsSlow] = useState(false);
 
@@ -72,7 +72,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (requireApproved && !profile?.approved) {
+  if (requireApproved && !isApproved) {
     return <Navigate to="/pending-approval" replace />;
   }
 
