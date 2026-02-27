@@ -87,7 +87,7 @@ const AppRoutes: React.FC = () => (
 );
 
 const App: React.FC = () => (
-  <BrowserRouter>
+  <BrowserRouter basename={import.meta.env.BASE_URL}>
     <AuthProvider>
       <OfflineProvider>
         <AppRoutes />
