@@ -40,11 +40,24 @@ const MSG_DB_SCHEMA_ERROR = 'ฐานข้อมูลยังไม่พร
 
 /** Map raw Supabase error messages to user-friendly Thai messages. */
 function mapAuthError(message: string): string {
+  const lower = message.toLowerCase();
   if (
-    message.toLowerCase().includes('database error querying schema') ||
-    message.toLowerCase().includes('error querying schema')
+    lower.includes('database error querying schema') ||
+    lower.includes('error querying schema')
   ) {
     return MSG_DB_SCHEMA_ERROR;
+  }
+  if (lower.includes('email rate limit exceeded') || lower.includes('rate limit')) {
+    return 'ส่งอีเมลบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่อีกครั้ง';
+  }
+  if (lower.includes('user already registered')) {
+    return 'อีเมลนี้ถูกใช้ลงทะเบียนแล้ว';
+  }
+  if (lower.includes('invalid email')) {
+    return 'รูปแบบอีเมลไม่ถูกต้อง';
+  }
+  if (lower.includes('password') && lower.includes('weak')) {
+    return 'รหัสผ่านไม่ปลอดภัยเพียงพอ กรุณาใช้รหัสผ่านที่ซับซ้อนกว่านี้';
   }
   return message;
 }
@@ -168,7 +181,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
     if (error || !data.user) {
       setState((s) => ({ ...s, isLoading: false }));
-      return { success: false, message: error?.message || 'ลงทะเบียนไม่สำเร็จ' };
+      return { success: false, message: mapAuthError(error?.message || 'ลงทะเบียนไม่สำเร็จ') };
     }
 
     // The trigger already created the profile row with all fields.
