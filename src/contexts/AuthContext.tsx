@@ -150,34 +150,55 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     setState((s) => ({ ...s, isLoading: true }));
 
-    // Determine whether this is the very first account in the system.
-    const { count, error: countError } = await supabase
-      .from('profiles')
-      .select('*', { count: 'exact', head: true });
-    if (countError) {
-      console.error('register: profile count error:', countError.message);
-    }
-    const isFirstUser = !countError && count === 0;
-
-    const { data, error } = await supabase.auth.signUp({ email, password });
+    // Pass all user data as metadata so the SECURITY DEFINER trigger can
+    // persist it into the profiles table even when there is no active session
+    // (e.g. when email confirmation is enabled).
+    // The trigger also handles first-user → admin promotion server-side,
+    // avoiding the RLS issue where a pre-auth count always returns 0.
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          fullname,
+          position: position ?? null,
+          organization: organization ?? null,
+        },
+      },
+    });
     if (error || !data.user) {
       setState((s) => ({ ...s, isLoading: false }));
       return { success: false, message: error?.message || 'ลงทะเบียนไม่สำเร็จ' };
     }
-    // Upsert profile row (trigger should create it, but we fill extra fields).
-    // The first registered account is automatically granted the admin role.
+
+    // The trigger already created the profile row with all fields.
+    // Attempt a client-side upsert as a safety fallback (may be blocked by
+    // RLS when email confirmation is pending – that is fine).
     const { error: profileError } = await supabase.from('profiles').upsert({
       id: data.user.id,
       email,
       fullname,
       position: position ?? null,
       organization: organization ?? null,
-      role: (isFirstUser ? 'admin' : 'pending') as UserRole,
-      approved: isFirstUser,
     });
     if (profileError) {
-      console.error('register: profile upsert error:', profileError.message);
+      // Non-critical: trigger already handled the insert.
+      console.warn('register: profile fallback upsert skipped:', profileError.message);
     }
+
+    // Check whether the trigger promoted this user to admin.
+    // This may fail if RLS blocks the read (e.g. email confirmation pending)
+    // – in that case we fall back to the generic pending message.
+    let isFirstUser = false;
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', data.user.id)
+      .single();
+    if (profile?.role === 'admin') {
+      isFirstUser = true;
+    }
+
     setState((s) => ({ ...s, isLoading: false }));
     return {
       success: true,
