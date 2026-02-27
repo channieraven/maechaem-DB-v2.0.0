@@ -20,6 +20,20 @@
 </head>
 <body class="bg-gray-50 text-gray-900">
   <div id="root"></div>
+  <script>
+    // Restore the path redirected from 404.html (GitHub Pages SPA routing fix).
+    (function () {
+      var query = window.location.search;
+      if (query) {
+        var params = new URLSearchParams(query);
+        var p = params.get('p');
+        if (p) {
+          var h = params.get('h') ? '#' + params.get('h') : '';
+          window.history.replaceState(null, '', '/' + decodeURIComponent(p) + h);
+        }
+      }
+    })();
+  </script>
   <script type="module" src="/src/main.tsx"></script>
   <script>
     if ('serviceWorker' in navigator) {
