@@ -182,16 +182,31 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
+DECLARE
+  _is_first BOOLEAN;
+  _role     public.user_role;
 BEGIN
-  INSERT INTO public.profiles (id, email, fullname, role, approved)
+  -- If no profiles exist yet, the first registrant becomes admin automatically.
+  SELECT NOT EXISTS (SELECT 1 FROM public.profiles LIMIT 1) INTO _is_first;
+  _role := CASE WHEN _is_first THEN 'admin'::public.user_role
+                                ELSE 'pending'::public.user_role END;
+
+  INSERT INTO public.profiles (id, email, fullname, position, organization, role, approved)
   VALUES (
     NEW.id,
     NEW.email,
     COALESCE(NEW.raw_user_meta_data->>'fullname', ''),
-    'pending',
-    false
+    NEW.raw_user_meta_data->>'position',
+    NEW.raw_user_meta_data->>'organization',
+    _role,
+    _is_first
   )
-  ON CONFLICT (id) DO NOTHING;
+  ON CONFLICT (id) DO UPDATE SET
+    fullname     = EXCLUDED.fullname,
+    position     = EXCLUDED.position,
+    organization = EXCLUDED.organization,
+    role         = EXCLUDED.role,
+    approved     = EXCLUDED.approved;
   RETURN NEW;
 END;
 $$;
