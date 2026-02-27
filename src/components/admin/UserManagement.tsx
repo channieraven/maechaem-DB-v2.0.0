@@ -69,7 +69,13 @@ const UserManagement: React.FC = () => {
                   <select
                     value={u.role}
                     disabled={saving === u.id}
-                    onChange={(e) => updateUser(u.id, { role: e.target.value as UserRole })}
+                    onChange={(e) => {
+                      const newRole = e.target.value as UserRole;
+                      // Promoting to admin implicitly approves the account.
+                      const updates: Partial<Profile> = { role: newRole };
+                      if (newRole === 'admin') updates.approved = true;
+                      updateUser(u.id, updates);
+                    }}
                     className="border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-green-500"
                   >
                     {ROLES.map((r) => (

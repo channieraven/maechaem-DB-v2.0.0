@@ -67,15 +67,17 @@ function mapAuthError(message: string): string {
 
 function buildState(user: User | null, profile: Profile | null, session: Session | null): AuthState {
   const role = profile?.role ?? null;
+  const isAdmin = role === 'admin';
   return {
     user,
     profile,
     session,
     isLoading: false,
-    isApproved: profile?.approved ?? false,
+    // Admins are always considered approved regardless of the approved flag.
+    isApproved: isAdmin || (profile?.approved ?? false),
     role,
     canWrite: role !== null && WRITE_ROLES.includes(role),
-    isAdmin: role === 'admin',
+    isAdmin,
     initError: null,
     initTimedOut: false,
   };
