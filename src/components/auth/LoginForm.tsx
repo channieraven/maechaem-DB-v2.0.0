@@ -4,17 +4,22 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Trees, Eye, EyeOff, Loader2 } from 'lucide-react';
 
 const LoginForm: React.FC = () => {
-  const { login } = useAuth();
+  const { login, loginWithMagicLink } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isMagicLoading, setIsMagicLoading] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const trimmedEmail = email.trim();
+  const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setNotice('');
     setIsLoading(true);
     const result = await login(email, password);
     setIsLoading(false);
@@ -22,6 +27,23 @@ const LoginForm: React.FC = () => {
       navigate('/plots');
     } else {
       setError(result.message || 'เข้าสู่ระบบไม่สำเร็จ');
+    }
+  };
+
+  const handleMagicLink = async () => {
+    setError('');
+    setNotice('');
+    if (!isEmailValid) {
+      setError('กรุณากรอกอีเมลให้ถูกต้องก่อนส่ง Magic Link');
+      return;
+    }
+    setIsMagicLoading(true);
+    const result = await loginWithMagicLink(email);
+    setIsMagicLoading(false);
+    if (result.success) {
+      setNotice(result.message || 'ส่งลิงก์เข้าสู่ระบบแล้ว');
+    } else {
+      setError(result.message || 'ไม่สามารถส่ง Magic Link ได้');
     }
   };
 
@@ -39,6 +61,11 @@ const LoginForm: React.FC = () => {
         {error && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
             {error}
+          </div>
+        )}
+        {notice && (
+          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
+            {notice}
           </div>
         )}
 
@@ -85,6 +112,17 @@ const LoginForm: React.FC = () => {
           >
             {isLoading ? <Loader2 size={16} className="animate-spin" /> : null}
             {isLoading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
+          </button>
+          <button
+            type="button"
+            onClick={handleMagicLink}
+            disabled={isMagicLoading || !isEmailValid}
+            title={!isEmailValid ? 'กรุณากรอกอีเมลให้ถูกต้องก่อนส่ง Magic Link' : undefined}
+            aria-label={!isEmailValid ? 'ปุ่มส่ง Magic Link ใช้งานไม่ได้ กรุณากรอกอีเมลให้ถูกต้อง' : 'ส่ง Magic Link เข้าอีเมล'}
+            className="w-full border border-[#2d5a27] text-[#2d5a27] rounded-lg py-3 text-sm font-semibold hover:bg-green-50 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+          >
+            {isMagicLoading ? <Loader2 size={16} className="animate-spin" /> : null}
+            {isMagicLoading ? 'กำลังส่งลิงก์...' : 'ส่ง Magic Link เข้าอีเมล'}
           </button>
         </form>
 
