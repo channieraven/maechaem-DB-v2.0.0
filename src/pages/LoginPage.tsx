@@ -4,10 +4,10 @@ import { useAuth } from '../contexts/AuthContext';
 import LoginForm from '../components/auth/LoginForm';
 
 const LoginPage: React.FC = () => {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, isApproved } = useAuth();
 
   if (!isLoading && user) {
-    return <Navigate to="/plots" replace />;
+    return <Navigate to={isApproved ? '/plots' : '/pending-approval'} replace />;
   }
 
   return <LoginForm />;

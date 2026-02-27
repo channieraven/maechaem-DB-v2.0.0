@@ -18,7 +18,7 @@ import ProfilePage from './pages/ProfilePage';
 
 // Pending approval page (inline)
 const PendingApprovalPage: React.FC = () => {
-  const { logout, refreshProfile, isApproved } = useAuth();
+  const { logout, refreshProfile, isApproved, user } = useAuth();
   const [checking, setChecking] = useState(false);
 
   // Poll every 30 seconds to auto-detect approval
@@ -38,6 +38,11 @@ const PendingApprovalPage: React.FC = () => {
       setChecking(false);
     }
   }, [refreshProfile]);
+
+  // Redirect to login after logout (user becomes null)
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
 
   // Auto-redirect once approved (after all hooks)
   if (isApproved) {

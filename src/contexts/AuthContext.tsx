@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import type { User, Session } from '@supabase/supabase-js';
 import supabase, { isSupabaseConfigured } from '../lib/supabase';
 import type { Profile, UserRole } from '../lib/database.types';
@@ -102,6 +102,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Guards to prevent redundant concurrent fetchProfile calls.
   const isLoginFetchingRef = useRef(false);
   const isInitFetchingRef = useRef(false);
+
+  // Always-current reference to the user, used by the stable refreshProfile callback.
+  const userRef = useRef(state.user);
+  useEffect(() => { userRef.current = state.user; }, [state.user]);
 
   // Retry trigger — incrementing re-runs the init useEffect.
   const [retryCounter, setRetryCounter] = useState(0);
@@ -294,11 +298,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await refreshProfile();
   };
 
-  const refreshProfile = async () => {
-    if (!state.user) return;
-    const profile = await fetchProfile(state.user.id);
+  const refreshProfile = useCallback(async () => {
+    const user = userRef.current;
+    if (!user) return;
+    const profile = await fetchProfile(user.id);
     setState((s) => buildState(s.user, profile, s.session));
-  };
+  }, []);
 
   return (
     <AuthContext.Provider value={{ ...state, login, register, logout, updateProfile, refreshProfile, retryInit }}>
