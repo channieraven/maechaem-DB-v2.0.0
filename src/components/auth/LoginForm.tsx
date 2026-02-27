@@ -13,6 +13,8 @@ const LoginForm: React.FC = () => {
   const [isMagicLoading, setIsMagicLoading] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const trimmedEmail = email.trim();
+  const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,6 +33,10 @@ const LoginForm: React.FC = () => {
   const handleMagicLink = async () => {
     setError('');
     setNotice('');
+    if (!isEmailValid) {
+      setError('กรุณากรอกอีเมลให้ถูกต้องก่อนส่ง Magic Link');
+      return;
+    }
     setIsMagicLoading(true);
     const result = await loginWithMagicLink(email);
     setIsMagicLoading(false);
@@ -110,7 +116,8 @@ const LoginForm: React.FC = () => {
           <button
             type="button"
             onClick={handleMagicLink}
-            disabled={isMagicLoading || !email}
+            disabled={isMagicLoading || !isEmailValid}
+            title={!isEmailValid ? 'กรุณากรอกอีเมลให้ถูกต้องก่อนส่ง Magic Link' : undefined}
             className="w-full border border-[#2d5a27] text-[#2d5a27] rounded-lg py-3 text-sm font-semibold hover:bg-green-50 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
           >
             {isMagicLoading ? <Loader2 size={16} className="animate-spin" /> : null}

@@ -232,7 +232,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!normalizedEmail) {
       return { success: false, message: 'กรุณากรอกอีเมลก่อนขอ Magic Link' };
     }
-    const redirectTo = new URL(`${import.meta.env.BASE_URL}login`, window.location.origin).toString();
+    const baseUrl = import.meta.env.BASE_URL || '/';
+    const normalizedBaseUrl = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
+    const redirectTo = new URL(`${normalizedBaseUrl}login`, window.location.origin).toString();
     const { error } = await supabase.auth.signInWithOtp({
       email: normalizedEmail,
       options: { emailRedirectTo: redirectTo },
