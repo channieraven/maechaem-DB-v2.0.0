@@ -13,7 +13,7 @@ if (!isSupabaseConfigured) {
 }
 
 const supabase = createClient<Database>(
-  supabaseUrl || 'https://placeholder.supabase.co',
+  supabaseUrl || 'https://mdedbsgnswflhcpyqoci.supabase.co',
   supabaseAnonKey || 'placeholder',
   {
     auth: {
