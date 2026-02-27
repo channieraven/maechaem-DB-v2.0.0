@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { User, Session } from '@supabase/supabase-js';
 import supabase, { isSupabaseConfigured } from '../lib/supabase';
 import type { Profile, UserRole } from '../lib/database.types';
@@ -79,6 +79,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isAdmin: false,
   });
 
+  // Set to true while login() is actively fetching the profile so that the
+  // concurrent onAuthStateChange SIGNED_IN event does not trigger a redundant
+  // second fetchProfile call.
+  const isLoginFetchingRef = useRef(false);
+
   // Fetch the profiles row for a given user id
   const fetchProfile = async (userId: string): Promise<Profile | null> => {
     const { data, error } = await supabase
@@ -116,6 +121,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       async (_event, session) => {
         if (!mounted) return;
         if (session?.user) {
+          // login() sets isLoginFetchingRef before signInWithPassword resolves,
+          // so when the SIGNED_IN event fires here concurrently we can skip the
+          // redundant fetch — login() will set state itself before returning.
+          if (isLoginFetchingRef.current) return;
           const profile = await fetchProfile(session.user.id);
           if (mounted) setState(buildState(session.user, profile, session));
         } else {
@@ -135,12 +144,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: false, message: MSG_SUPABASE_NOT_CONFIGURED };
     }
     setState((s) => ({ ...s, isLoading: true }));
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    // Mark that login() will handle the profile fetch so onAuthStateChange
+    // can skip its concurrent SIGNED_IN fetch.
+    isLoginFetchingRef.current = true;
+    const { data: { session }, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
+      isLoginFetchingRef.current = false;
       setState((s) => ({ ...s, isLoading: false }));
       return { success: false, message: mapAuthError(error.message) };
     }
-    // onAuthStateChange will update state
+    // Fetch profile now so state is fully populated before we return — the
+    // caller (and ProtectedRoute) can rely on it without waiting for
+    // onAuthStateChange to fire.
+    if (session?.user) {
+      const profile = await fetchProfile(session.user.id);
+      setState(buildState(session.user, profile, session));
+    }
+    isLoginFetchingRef.current = false;
     return { success: true };
   };
 
