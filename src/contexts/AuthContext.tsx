@@ -238,8 +238,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       options: {
         data: {
           fullname,
-          position: position ?? null,
-          organization: organization ?? null,
+          position: position || null,
+          organization: organization || null,
         },
       },
     });
@@ -255,8 +255,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       id: data.user.id,
       email,
       fullname,
-      position: position ?? null,
-      organization: organization ?? null,
+      position: position || null,
+      organization: organization || null,
     });
     if (profileError) {
       // Non-critical: trigger already handled the insert.

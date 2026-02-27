@@ -108,16 +108,22 @@ For GitHub Actions / GitHub Pages, add them as **repository variables** (not sec
 
    | File | Contents |
    |------|----------|
-   | `supabase/migrations/00001_initial_schema.sql` | Tables, enums, trigger, helper function |
+   | `supabase/migrations/00001_initial_schema.sql` | Tables, enums, trigger, helper functions |
    | `supabase/migrations/00002_rls_policies.sql` | Row Level Security policies |
+   | `supabase/migrations/00003_fix_handle_new_user_trigger.sql` | Improved trigger function |
+   | `supabase/migrations/00004_plot_summary_rpc.sql` | `get_plot_summaries()` RPC |
+   | `supabase/migrations/00005_admin_auto_approve.sql` | Auto-approve admin role changes |
+   | `supabase/migrations/00006_ensure_handle_new_user_trigger.sql` | Reinstalls trigger (idempotent) |
 
 3. After running the migrations:
-   - The `profiles` table is created and a `handle_new_user` trigger will auto-create a profile row for every new sign-up.
+   - The `profiles` table is created and a `handle_new_user` trigger will auto-create a profile row in `public.profiles` for every new sign-up in `auth.users`.
    - RLS policies are enabled so users can only access data they are authorised to see.
 
 ### First Admin User
 
-After registering the first user, promote them to `admin` directly in the Supabase Dashboard:
+The **first user to register** is automatically promoted to `admin` and marked as approved by the `handle_new_user` trigger — no manual SQL step is required.
+
+If you need to promote an additional user to admin later, run this in the SQL Editor:
 
 ```sql
 UPDATE public.profiles
