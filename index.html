@@ -22,6 +22,9 @@
   <div id="root"></div>
   <script>
     // Restore the path redirected from 404.html (GitHub Pages SPA routing fix).
+    // Note: URLSearchParams.get() already decodes the value once, so we must
+    // NOT call decodeURIComponent again to avoid corrupting PKCE auth codes
+    // (?code=...) or any special characters in the path.
     (function () {
       var query = window.location.search;
       if (query) {
@@ -29,7 +32,7 @@
         var p = params.get('p');
         if (p) {
           var h = params.get('h') ? '#' + params.get('h') : '';
-          window.history.replaceState(null, '', '/' + decodeURIComponent(p) + h);
+          window.history.replaceState(null, '', '/' + p + h);
         }
       }
     })();

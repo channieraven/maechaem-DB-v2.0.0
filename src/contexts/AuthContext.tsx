@@ -58,11 +58,39 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 
 /** Map raw Supabase error messages to user-friendly Thai messages. */
 function mapAuthError(message: string): string {
-  if (
-    message.toLowerCase().includes('database error querying schema') ||
-    message.toLowerCase().includes('error querying schema')
-  ) {
+  const lower = message.toLowerCase();
+  if (lower.includes('database error querying schema') || lower.includes('error querying schema')) {
     return MSG_DB_SCHEMA_ERROR;
+  }
+  if (lower.includes('invalid login credentials') || lower.includes('invalid email or password')) {
+    return 'อีเมลหรือรหัสผ่านไม่ถูกต้อง';
+  }
+  if (lower.includes('email not confirmed')) {
+    return 'กรุณายืนยันอีเมลของคุณก่อนเข้าสู่ระบบ';
+  }
+  if (lower.includes('user not found') || lower.includes('no user found')) {
+    return 'ไม่พบบัญชีผู้ใช้';
+  }
+  if (lower.includes('user already registered') || lower.includes('email already in use') || lower.includes('already been registered')) {
+    return 'อีเมลนี้ถูกใช้งานแล้ว กรุณาใช้อีเมลอื่นหรือเข้าสู่ระบบ';
+  }
+  if (lower.includes('password should be at least') || lower.includes('password is too short')) {
+    return 'รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร';
+  }
+  if (lower.includes('rate limit') || lower.includes('too many requests')) {
+    return 'ส่งคำขอมากเกินไป กรุณารอสักครู่แล้วลองใหม่';
+  }
+  if (lower.includes('network') || lower.includes('fetch') || lower.includes('failed to fetch')) {
+    return 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต';
+  }
+  if (lower.includes('token') && lower.includes('expired')) {
+    return 'ลิงก์หมดอายุแล้ว กรุณาขอลิงก์ใหม่';
+  }
+  if (lower.includes('otp expired') || (lower.includes('magic link') && lower.includes('expired'))) {
+    return 'Magic Link หมดอายุแล้ว กรุณาขอลิงก์ใหม่';
+  }
+  if (lower.includes('signup') && lower.includes('disabled')) {
+    return 'ระบบลงทะเบียนถูกปิดใช้งานชั่วคราว กรุณาติดต่อผู้ดูแลระบบ';
   }
   return message;
 }
@@ -143,6 +171,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let mounted = true;
 
     const init = async () => {
+      if (!isSupabaseConfigured) {
+        setState((s) => ({ ...s, isLoading: false }));
+        return;
+      }
       isInitFetchingRef.current = true;
       try {
         const { data: { session } } = await withTimeout(

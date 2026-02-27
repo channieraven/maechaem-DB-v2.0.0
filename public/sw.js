@@ -3,12 +3,16 @@
 
 const CACHE_NAME = 'maechaem-v1';
 
+// Derive the base path of this service worker (e.g. '/maechaem-DB-v2.0.0/' or '/')
+// so that shell asset URLs are absolute and work correctly on subpath deployments.
+const SW_BASE = self.location.pathname.substring(0, self.location.pathname.lastIndexOf('/') + 1);
+
 // Core assets to pre-cache on install (app shell)
 const SHELL_ASSETS = [
-  './',
-  './index.html',
-  './manifest.json',
-  './icons/icon.svg',
+  SW_BASE,
+  SW_BASE + 'index.html',
+  SW_BASE + 'manifest.json',
+  SW_BASE + 'icons/icon.svg',
 ];
 
 // ── Install: pre-cache the app shell ────────────────────────────────────────
@@ -68,7 +72,7 @@ self.addEventListener('fetch', (event) => {
           return response;
         })
         .catch(() =>
-          caches.match('./index.html').then((cached) => cached || new Response('ออฟไลน์', { status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' } }))
+          caches.match(SW_BASE + 'index.html').then((cached) => cached || new Response('ออฟไลน์', { status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' } }))
         )
     );
     return;
