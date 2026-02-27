@@ -96,6 +96,37 @@ For GitHub Actions / GitHub Pages, add them as **repository variables** (not sec
 
 ---
 
+## Database Setup
+
+> **Important:** The app requires the Supabase database schema to be initialised before login will work.  
+> If you see **"ฐานข้อมูลยังไม่พร้อมใช้งาน"** (Database error querying schema) when trying to log in, the schema has not been applied yet.
+
+### Applying the Schema
+
+1. Open the **Supabase Dashboard** → your project → **SQL Editor**.
+2. Open and run each migration file **in order**:
+
+   | File | Contents |
+   |------|----------|
+   | `supabase/migrations/00001_initial_schema.sql` | Tables, enums, trigger, helper function |
+   | `supabase/migrations/00002_rls_policies.sql` | Row Level Security policies |
+
+3. After running the migrations:
+   - The `profiles` table is created and a `handle_new_user` trigger will auto-create a profile row for every new sign-up.
+   - RLS policies are enabled so users can only access data they are authorised to see.
+
+### First Admin User
+
+After registering the first user, promote them to `admin` directly in the Supabase Dashboard:
+
+```sql
+UPDATE public.profiles
+SET role = 'admin', approved = true
+WHERE email = 'your@email.com';
+```
+
+---
+
 ## Offline / PWA Mode
 
 The app registers a service worker (`public/sw.js`) that:
