@@ -36,6 +36,18 @@ interface RegisterData {
 
 const WRITE_ROLES: UserRole[] = ['staff', 'researcher', 'admin'];
 const MSG_SUPABASE_NOT_CONFIGURED = 'ระบบยังไม่ได้ตั้งค่าการเชื่อมต่อฐานข้อมูล กรุณาติดต่อผู้ดูแลระบบ';
+const MSG_DB_SCHEMA_ERROR = 'ฐานข้อมูลยังไม่พร้อมใช้งาน กรุณาติดต่อผู้ดูแลระบบเพื่อตั้งค่า schema ของฐานข้อมูล';
+
+/** Map raw Supabase error messages to user-friendly Thai messages. */
+function mapAuthError(message: string): string {
+  if (
+    message.toLowerCase().includes('database error querying schema') ||
+    message.toLowerCase().includes('error querying schema')
+  ) {
+    return MSG_DB_SCHEMA_ERROR;
+  }
+  return message;
+}
 
 function buildState(user: User | null, profile: Profile | null, session: Session | null): AuthState {
   const role = profile?.role ?? null;
@@ -126,7 +138,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       setState((s) => ({ ...s, isLoading: false }));
-      return { success: false, message: error.message };
+      return { success: false, message: mapAuthError(error.message) };
     }
     // onAuthStateChange will update state
     return { success: true };
@@ -143,7 +155,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: false, message: error?.message || 'ลงทะเบียนไม่สำเร็จ' };
     }
     // Upsert profile row (trigger should create it, but we fill extra fields)
-    await supabase.from('profiles').upsert({
+    const { error: profileError } = await supabase.from('profiles').upsert({
       id: data.user.id,
       email,
       fullname,
@@ -152,6 +164,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       role: 'pending' as UserRole,
       approved: false,
     });
+    if (profileError) {
+      console.error('register: profile upsert error:', profileError.message);
+    }
     setState((s) => ({ ...s, isLoading: false }));
     return { success: true, message: 'ลงทะเบียนสำเร็จ — รอการอนุมัติจากผู้ดูแลระบบ' };
   };
