@@ -109,6 +109,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Initialise auth state from existing session
   useEffect(() => {
     let mounted = true;
+    // Tracks whether login() already populated the state so onAuthStateChange
+    // can skip the redundant fetchProfile call.
+    let profileReady = false;
 
     const init = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -116,7 +119,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (session?.user) {
         const profile = await fetchProfile(session.user.id);
-        if (mounted) setState(buildState(session.user, profile, session));
+        if (mounted) {
+          profileReady = true;
+          setState(buildState(session.user, profile, session));
+        }
       } else {
         setState((s) => ({ ...s, isLoading: false }));
       }
@@ -124,11 +130,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     init();
 
-    // Listen for auth changes
+    // Listen for auth changes (sign-in, sign-out, token refresh).
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
         if (!mounted) return;
         if (session?.user) {
+          // Skip the fetch when login() already set the state.
+          if (profileReady) {
+            profileReady = false;
+            return;
+          }
           const profile = await fetchProfile(session.user.id);
           if (mounted) setState(buildState(session.user, profile, session));
         } else {
@@ -148,12 +159,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: false, message: MSG_SUPABASE_NOT_CONFIGURED };
     }
     setState((s) => ({ ...s, isLoading: true }));
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       setState((s) => ({ ...s, isLoading: false }));
       return { success: false, message: mapAuthError(error.message) };
     }
-    // onAuthStateChange will update state
+    // Fetch profile immediately so the state is ready before navigating.
+    // This avoids the delay from waiting for onAuthStateChange to fire.
+    if (data.session?.user) {
+      const profile = await fetchProfile(data.session.user.id);
+      setState(buildState(data.session.user, profile, data.session));
+    }
     return { success: true };
   };
 
