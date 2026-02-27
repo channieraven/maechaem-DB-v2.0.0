@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import type { User, Session } from '@supabase/supabase-js';
-import supabase from '../lib/supabase';
+import supabase, { isSupabaseConfigured } from '../lib/supabase';
 import type { Profile, UserRole } from '../lib/database.types';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -35,6 +35,7 @@ interface RegisterData {
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 const WRITE_ROLES: UserRole[] = ['staff', 'researcher', 'admin'];
+const MSG_SUPABASE_NOT_CONFIGURED = 'ระบบยังไม่ได้ตั้งค่าการเชื่อมต่อฐานข้อมูล กรุณาติดต่อผู้ดูแลระบบ';
 
 function buildState(user: User | null, profile: Profile | null, session: Session | null): AuthState {
   const role = profile?.role ?? null;
@@ -118,6 +119,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = async (email: string, password: string) => {
+    if (!isSupabaseConfigured) {
+      return { success: false, message: MSG_SUPABASE_NOT_CONFIGURED };
+    }
     setState((s) => ({ ...s, isLoading: true }));
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
@@ -129,6 +133,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const register = async ({ email, password, fullname, position, organization }: RegisterData) => {
+    if (!isSupabaseConfigured) {
+      return { success: false, message: MSG_SUPABASE_NOT_CONFIGURED };
+    }
     setState((s) => ({ ...s, isLoading: true }));
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error || !data.user) {
