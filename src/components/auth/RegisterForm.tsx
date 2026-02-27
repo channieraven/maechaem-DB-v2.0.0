@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { Trees, Loader2 } from 'lucide-react';
 
@@ -124,7 +124,7 @@ const RegisterForm: React.FC = () => {
 
         <p className="mt-4 text-center text-sm text-gray-500">
           มีบัญชีแล้ว?{' '}
-          <a href="/login" className="text-[#2d5a27] font-semibold hover:underline">เข้าสู่ระบบ</a>
+          <Link to="/login" className="text-[#2d5a27] font-semibold hover:underline">เข้าสู่ระบบ</Link>
         </p>
       </div>
     </div>
