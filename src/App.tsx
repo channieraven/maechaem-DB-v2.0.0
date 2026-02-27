@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { OfflineProvider } from './contexts/OfflineContext';
 import ProtectedRoute from './components/auth/ProtectedRoute';
+import { RefreshCw, Loader2 } from 'lucide-react';
 
 // Pages
 import LoginPage from './pages/LoginPage';
@@ -17,7 +18,32 @@ import ProfilePage from './pages/ProfilePage';
 
 // Pending approval page (inline)
 const PendingApprovalPage: React.FC = () => {
-  const { logout } = useAuth();
+  const { logout, refreshProfile, isApproved } = useAuth();
+  const [checking, setChecking] = useState(false);
+
+  // Poll every 30 seconds to auto-detect approval
+  useEffect(() => {
+    const interval = setInterval(() => {
+      refreshProfile();
+    }, 30_000);
+    return () => clearInterval(interval);
+  }, [refreshProfile]);
+
+  // Manual "check again" handler
+  const handleCheck = useCallback(async () => {
+    setChecking(true);
+    try {
+      await refreshProfile();
+    } finally {
+      setChecking(false);
+    }
+  }, [refreshProfile]);
+
+  // Auto-redirect once approved (after all hooks)
+  if (isApproved) {
+    return <Navigate to="/plots" replace />;
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
       <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-8 text-center">
@@ -26,6 +52,18 @@ const PendingApprovalPage: React.FC = () => {
         <p className="text-sm text-gray-500 mb-6">
           บัญชีของคุณยังรอการอนุมัติจากผู้ดูแลระบบ กรุณาติดต่อผู้ดูแลระบบเพื่อเปิดใช้งาน
         </p>
+        <button
+          onClick={handleCheck}
+          disabled={checking}
+          className="w-full bg-[#2d5a27] text-white rounded-lg py-3 text-sm font-semibold hover:bg-[#234820] transition-colors flex items-center justify-center gap-2 mb-3 disabled:opacity-50"
+        >
+          {checking ? (
+            <Loader2 size={16} className="animate-spin" />
+          ) : (
+            <RefreshCw size={16} />
+          )}
+          ตรวจสอบอีกครั้ง
+        </button>
         <button
           onClick={logout}
           className="w-full bg-gray-100 text-gray-700 rounded-lg py-3 text-sm font-semibold hover:bg-gray-200 transition-colors"
