@@ -20,6 +20,7 @@ interface AuthState {
 
 interface AuthContextType extends AuthState {
   login: (email: string, password: string) => Promise<{ success: boolean; message?: string }>;
+  loginWithMagicLink: (email: string) => Promise<{ success: boolean; message?: string }>;
   register: (data: RegisterData) => Promise<{ success: boolean; message?: string }>;
   logout: () => Promise<void>;
   updateProfile: (data: Partial<Pick<Profile, 'fullname' | 'position' | 'organization'>>) => Promise<void>;
@@ -43,6 +44,7 @@ const MSG_DB_SCHEMA_ERROR = 'ฐานข้อมูลยังไม่พร
 const INIT_TIMEOUT_MS = 10_000;
 const MSG_INIT_TIMEOUT = 'การเชื่อมต่อใช้เวลานานเกินไป กรุณาลองใหม่อีกครั้ง';
 const MSG_INIT_ERROR = 'เกิดข้อผิดพลาดในการเชื่อมต่อ กรุณาลองใหม่อีกครั้ง';
+const MSG_MAGIC_LINK_SENT = 'ส่งลิงก์เข้าสู่ระบบแล้ว กรุณาตรวจสอบอีเมลของคุณ';
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -204,7 +206,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Mark that login() will handle the profile fetch so onAuthStateChange
     // can skip its concurrent SIGNED_IN fetch.
     isLoginFetchingRef.current = true;
-    const { data: { session }, error } = await supabase.auth.signInWithPassword({ email, password });
+    const normalizedEmail = email.trim().toLowerCase();
+    const { data: { session }, error } = await supabase.auth.signInWithPassword({ email: normalizedEmail, password });
     if (error) {
       isLoginFetchingRef.current = false;
       setState((s) => ({ ...s, isLoading: false }));
@@ -221,6 +224,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { success: true };
   };
 
+  const loginWithMagicLink = async (email: string) => {
+    if (!isSupabaseConfigured) {
+      return { success: false, message: MSG_SUPABASE_NOT_CONFIGURED };
+    }
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) {
+      return { success: false, message: 'กรุณากรอกอีเมลก่อนขอ Magic Link' };
+    }
+    const redirectTo = new URL(`${import.meta.env.BASE_URL}login`, window.location.origin).toString();
+    const { error } = await supabase.auth.signInWithOtp({
+      email: normalizedEmail,
+      options: { emailRedirectTo: redirectTo },
+    });
+    if (error) {
+      return { success: false, message: mapAuthError(error.message) };
+    }
+    return { success: true, message: MSG_MAGIC_LINK_SENT };
+  };
+
   const register = async ({ email, password, fullname, position, organization }: RegisterData) => {
     if (!isSupabaseConfigured) {
       return { success: false, message: MSG_SUPABASE_NOT_CONFIGURED };
@@ -232,8 +254,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // (e.g. when email confirmation is enabled).
     // The trigger also handles first-user → admin promotion server-side,
     // avoiding the RLS issue where a pre-auth count always returns 0.
+    const normalizedEmail = email.trim().toLowerCase();
     const { data, error } = await supabase.auth.signUp({
-      email,
+      email: normalizedEmail,
       password,
       options: {
         data: {
@@ -253,7 +276,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // RLS when email confirmation is pending – that is fine).
     const { error: profileError } = await supabase.from('profiles').upsert({
       id: data.user.id,
-      email,
+      email: normalizedEmail,
       fullname,
       position: position || null,
       organization: organization || null,
@@ -308,7 +331,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   return (
-    <AuthContext.Provider value={{ ...state, login, register, logout, updateProfile, refreshProfile, retryInit }}>
+    <AuthContext.Provider value={{ ...state, login, loginWithMagicLink, register, logout, updateProfile, refreshProfile, retryInit }}>
       {children}
     </AuthContext.Provider>
   );
