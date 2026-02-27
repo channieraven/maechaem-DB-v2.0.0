@@ -71,9 +71,10 @@ const UserManagement: React.FC = () => {
                     disabled={saving === u.id}
                     onChange={(e) => {
                       const newRole = e.target.value as UserRole;
-                      // Promoting to admin implicitly approves the account.
+                      // Assigning any non-pending role implicitly approves the account;
+                      // reverting to pending revokes approval.
                       const updates: Partial<Profile> = { role: newRole };
-                      if (newRole === 'admin') updates.approved = true;
+                      updates.approved = newRole !== 'pending';
                       updateUser(u.id, updates);
                     }}
                     className="border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-green-500"
