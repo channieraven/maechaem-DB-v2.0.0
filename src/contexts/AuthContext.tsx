@@ -234,7 +234,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     const baseUrl = import.meta.env.BASE_URL || '/';
     const normalizedBaseUrl = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
-    const redirectTo = new URL(`${normalizedBaseUrl}login`, window.location.origin).toString();
+    const redirectTo = new URL('login', new URL(normalizedBaseUrl, window.location.origin)).toString();
     const { error } = await supabase.auth.signInWithOtp({
       email: normalizedEmail,
       options: { emailRedirectTo: redirectTo },

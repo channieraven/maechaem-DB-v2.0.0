@@ -118,6 +118,7 @@ const LoginForm: React.FC = () => {
             onClick={handleMagicLink}
             disabled={isMagicLoading || !isEmailValid}
             title={!isEmailValid ? 'กรุณากรอกอีเมลให้ถูกต้องก่อนส่ง Magic Link' : undefined}
+            aria-label={!isEmailValid ? 'ปุ่มส่ง Magic Link ใช้งานไม่ได้ กรุณากรอกอีเมลให้ถูกต้อง' : 'ส่ง Magic Link เข้าอีเมล'}
             className="w-full border border-[#2d5a27] text-[#2d5a27] rounded-lg py-3 text-sm font-semibold hover:bg-green-50 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
           >
             {isMagicLoading ? <Loader2 size={16} className="animate-spin" /> : null}
